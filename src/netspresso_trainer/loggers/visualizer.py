@@ -25,9 +25,9 @@ from ..dataloaders import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 
 def _voc_color_map(N=256, normalized=False):
     def bitget(byteval, idx):
-        return ((byteval & (1 << idx)) != 0)
+        return (byteval & (1 << idx)) != 0
 
-    dtype = 'float32' if normalized else 'uint8'
+    dtype = "float32" if normalized else "uint8"
     cmap = np.zeros((N, 3), dtype=dtype)
     for i in range(N):
         r = g = b = 0
@@ -53,17 +53,33 @@ class ClassificationVisualizer:
         return_images = []
         for image, ann in zip(original_images, pred_or_target):
             image = image.copy()
-            label = ann['label']
-            conf_score = ann['conf_score'] if 'conf_score' in ann else None
+            label = ann["label"]
+            conf_score = ann["conf_score"] if "conf_score" in ann else None
 
-            class_name = self.class_map[label[0]] # Class is determined with top1 score
-            conf_score = f" {round(float(conf_score[0]), 2)}" if conf_score is not None else ""
+            class_name = self.class_map[label[0]]  # Class is determined with top1 score
+            conf_score = (
+                f" {round(float(conf_score[0]), 2)}" if conf_score is not None else ""
+            )
             prediction = f"{str(class_name)}" + conf_score
             x1, y1 = 0, 0
             text_size, _ = cv2.getTextSize(prediction, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
             text_w, text_h = text_size
-            image = cv2.rectangle(image, (x1, y1), (x1+text_w, y1+text_h+5), color=(0, 0, 255), thickness=-1)
-            image = cv2.putText(image, prediction, (x1, y1+text_h), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+            image = cv2.rectangle(
+                image,
+                (x1, y1),
+                (x1 + text_w, y1 + text_h + 5),
+                color=(0, 0, 255),
+                thickness=-1,
+            )
+            image = cv2.putText(
+                image,
+                prediction,
+                (x1, y1 + text_h),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (255, 255, 255),
+                1,
+            )
 
             return_images.append(image)
         return return_images
@@ -78,20 +94,19 @@ class DetectionVisualizer:
             self.cmap = np.array(pallete[:n], dtype=np.uint8)
         self.class_map = class_map
 
-
     def _convert(self, gray_image):
         assert len(gray_image.shape) == 2
         size = gray_image.shape
         color_image = np.zeros((3, size[0], size[1]), dtype=np.uint8)
 
         for label in range(0, len(self.cmap)):
-            mask = (label == gray_image)
+            mask = label == gray_image
             color_image[0][mask] = self.cmap[label][0]
             color_image[1][mask] = self.cmap[label][1]
             color_image[2][mask] = self.cmap[label][2]
 
         # handle void
-        mask = (gray_image == 255)
+        mask = gray_image == 255
         color_image[0][mask] = color_image[1][mask] = color_image[2][mask] = 255
 
         return color_image
@@ -101,11 +116,13 @@ class DetectionVisualizer:
         return_images = []
         for image, ann in zip(original_images, pred_or_target):
             image = image.copy()
-            instance_num = len(ann['boxes'])
+            instance_num = len(ann["boxes"])
             for instance_idx in range(instance_num):
-                box = ann['boxes'][instance_idx]
-                class_label = int(ann['labels'][instance_idx])
-                conf_score = float(ann['scores'][instance_idx]) if 'conf_scores' in ann else None
+                box = ann["boxes"][instance_idx]
+                class_label = int(ann["labels"][instance_idx])
+                conf_score = (
+                    float(ann["scores"][instance_idx]) if "conf_scores" in ann else None
+                )
 
                 class_name = self.class_map[class_label]
 
@@ -114,14 +131,34 @@ class DetectionVisualizer:
                 y1 = int(box[1])
                 x2 = int(box[2])
                 y2 = int(box[3])
-                conf_score = '' if conf_score is None else " " + str(round(conf_score, 2))
+                conf_score = (
+                    "" if conf_score is None else " " + str(round(conf_score, 2))
+                )
                 color = self.cmap[class_label].tolist()
 
-                image = cv2.rectangle(image, (x1, y1), (x2, y2), color=color, thickness=2)
-                text_size, _ = cv2.getTextSize(f"{class_name}{conf_score}", cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                image = cv2.rectangle(
+                    image, (x1, y1), (x2, y2), color=color, thickness=2
+                )
+                text_size, _ = cv2.getTextSize(
+                    f"{class_name}{conf_score}", cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1
+                )
                 text_w, text_h = text_size
-                image = cv2.rectangle(image, (x1, y1-5-text_h), (x1+text_w, y1), color=color, thickness=-1)
-                image = cv2.putText(image, f"{class_name}{conf_score}", (x1, y1-5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                image = cv2.rectangle(
+                    image,
+                    (x1, y1 - 5 - text_h),
+                    (x1 + text_w, y1),
+                    color=color,
+                    thickness=-1,
+                )
+                image = cv2.putText(
+                    image,
+                    f"{class_name}{conf_score}",
+                    (x1, y1 - 5),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (255, 255, 255),
+                    1,
+                )
 
             return_images.append(image)
         return return_images
@@ -142,13 +179,13 @@ class SegmentationVisualizer:
         color_image = np.zeros((3, size[0], size[1]), dtype=np.uint8)
 
         for label in range(0, len(self.cmap)):
-            mask = (label == gray_image)
+            mask = label == gray_image
             color_image[0][mask] = self.cmap[label][0]
             color_image[1][mask] = self.cmap[label][1]
             color_image[2][mask] = self.cmap[label][2]
 
         # handle void
-        mask = (gray_image == 255)
+        mask = gray_image == 255
         color_image[0][mask] = color_image[1][mask] = color_image[2][mask] = 255
 
         color_image = color_image.transpose((1, 2, 0))  # H x W x C
@@ -158,22 +195,40 @@ class SegmentationVisualizer:
     def __call__(self, original_images: List, pred_or_target: List):
         result_images = []
         for ann in pred_or_target:
-            mask = ann['mask']
+            mask = ann["mask"]
             result_images.append(self._convert(mask))
 
         return result_images
+
 
 class PoseEstimationVisualizer:
     def __init__(self, class_map, pallete=None):
         len(class_map)
 
-    def __call__(self, results, images=None):
+    def __call__(self, images, results):
         return_images = []
         for image, result in zip(images, results):
             image = image.copy()
             for keypoint in result:
-                x = round(keypoint[0])
-                y = round(keypoint[1])
+                # Ensure keypoint is a flat array or scalar
+                kp_x = keypoint[0]
+                kp_y = keypoint[1]
+
+                # Handle if it's a 0-d array or 1-element array
+                if isinstance(kp_x, np.ndarray):
+                    if kp_x.size == 1:
+                        kp_x = kp_x.item()
+                    else:
+                        kp_x = kp_x[0]  # Fallback: take first element if size > 1
+
+                if isinstance(kp_y, np.ndarray):
+                    if kp_y.size == 1:
+                        kp_y = kp_y.item()
+                    else:
+                        kp_y = kp_y[0]  # Fallback: take first element if size > 1
+
+                x = int(round(float(kp_x)))
+                y = int(round(float(kp_y)))
                 image = cv2.line(image, (x, y), (x, y), color=(0, 0, 255), thickness=5)
 
             return_images.append(image[np.newaxis, ...])
@@ -183,8 +238,15 @@ class PoseEstimationVisualizer:
 
 def _as_image_array(img: np.ndarray):
     min_, max_ = np.amin(img), np.amax(img)
-    is_int_array = img.dtype in [np.uint8, np.uint16, np.int8, np.int16, np.int32, np.int64]
-    try_uint8 = (min_ >= 0 and max_ <= 255)
+    is_int_array = img.dtype in [
+        np.uint8,
+        np.uint16,
+        np.int8,
+        np.int16,
+        np.int32,
+        np.int64,
+    ]
+    try_uint8 = min_ >= 0 and max_ <= 255
 
     if is_int_array and try_uint8:
         img = img.astype(np.uint8)
@@ -197,10 +259,17 @@ def _as_image_array(img: np.ndarray):
             img = ((img + 1) / 2.0 * 255.0).astype(np.uint8)
         else:
             # denormalize with mean and std
-            img = np.clip(img * (np.array(IMAGENET_DEFAULT_STD, dtype=np.float32) * 255.0) + np.array(IMAGENET_DEFAULT_MEAN, dtype=np.float32) * 255.0, 0, 255).astype(np.uint8)
+            img = np.clip(
+                img * (np.array(IMAGENET_DEFAULT_STD, dtype=np.float32) * 255.0)
+                + np.array(IMAGENET_DEFAULT_MEAN, dtype=np.float32) * 255.0,
+                0,
+                255,
+            ).astype(np.uint8)
 
     if img.shape[-1] != 1 and img.shape[-1] != 3:
-        img = np.expand_dims(np.concatenate([img[..., i] for i in range(img.shape[-1])], axis=0), -1)
+        img = np.expand_dims(
+            np.concatenate([img[..., i] for i in range(img.shape[-1])], axis=0), -1
+        )
     img = np.clip(img, a_min=0, a_max=255)
     return img
 
@@ -215,8 +284,10 @@ def magic_image_handler(img):
     elif img.ndim == 4:
         img_new = []
         for _img in img:
-            _img = _img.transpose((1, 2, 0)) if _img.shape[0] == 3 else _img  # H x W x C
+            _img = (
+                _img.transpose((1, 2, 0)) if _img.shape[0] == 3 else _img
+            )  # H x W x C
             img_new.append(_as_image_array(_img))
         return np.array(img_new)
     else:
-        raise ValueError(f'img ndim is {img.ndim}, should be either 2, 3, or 4')
+        raise ValueError(f"img ndim is {img.ndim}, should be either 2, 3, or 4")

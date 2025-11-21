@@ -32,11 +32,11 @@ from .tensorboard import TensorboardLogger
 from .visualizer import magic_image_handler
 
 
-class TrainingLogger():
+class TrainingLogger:
     def __init__(
         self,
         conf,
-        task: Literal['classification', 'segmentation', 'detection'],
+        task: Literal["classification", "segmentation", "detection"],
         model: str,
         class_map: Dict[int, str],
         step_per_epoch: int,
@@ -52,13 +52,21 @@ class TrainingLogger():
         self.epoch = epoch
         self.dataloader = dataloader
 
-        self.project_id = conf.logging.project_id if conf.logging.project_id is not None else f"{self.task}_{self.model}"
+        self.project_id = (
+            conf.logging.project_id
+            if conf.logging.project_id is not None
+            else f"{self.task}_{self.model}"
+        )
 
         self._result_dir = result_dir
         OmegaConf.save(config=self.conf, f=(result_dir / "hparams.yaml"))
 
-        self.num_sample_images: int = sys.maxsize if self.conf.logging.num_save_samples is None else self.conf.logging.num_save_samples
-        self.conf.logging.num_save_samples = self.num_sample_images # Overwrite
+        self.num_sample_images: int = (
+            sys.maxsize
+            if self.conf.logging.num_save_samples is None
+            else self.conf.logging.num_save_samples
+        )
+        self.conf.logging.num_save_samples = self.num_sample_images  # Overwrite
 
         self.use_mlflow: bool = self.conf.logging.mlflow
         self.use_tensorboard: bool = self.conf.logging.tensorboard
@@ -68,22 +76,44 @@ class TrainingLogger():
 
         self.loggers = []
         if self.use_imagesaver:
-            self.loggers.append(ImageSaver(model=model, result_dir=self._result_dir, save_best_only=self._save_best_only))
+            self.loggers.append(
+                ImageSaver(
+                    model=model,
+                    result_dir=self._result_dir,
+                    save_best_only=self._save_best_only,
+                )
+            )
         if self.use_tensorboard:
-            self.tensorboard_logger = TensorboardLogger(task=task, model=model, result_dir=self._result_dir,
-                                                        step_per_epoch=step_per_epoch)
+            self.tensorboard_logger = TensorboardLogger(
+                task=task,
+                model=model,
+                result_dir=self._result_dir,
+                step_per_epoch=step_per_epoch,
+            )
             self.loggers.append(self.tensorboard_logger)
         if self.use_mlflow:
             from .mlflow import MLFlowLogger
-            self.mlflow_logger = MLFlowLogger(result_dir=self._result_dir, step_per_epoch=step_per_epoch)
+
+            self.mlflow_logger = MLFlowLogger(
+                result_dir=self._result_dir, step_per_epoch=step_per_epoch
+            )
             self.loggers.append(self.mlflow_logger)
         if self.use_stdout:
-            total_epochs = conf.training.epochs if hasattr(conf, 'training') else None
-            self.loggers.append(StdOutLogger(task=task, model=model, total_epochs=total_epochs, result_dir=self._result_dir))
+            total_epochs = conf.training.epochs if hasattr(conf, "training") else None
+            self.loggers.append(
+                StdOutLogger(
+                    task=task,
+                    model=model,
+                    total_epochs=total_epochs,
+                    result_dir=self._result_dir,
+                )
+            )
 
         if task in VISUALIZER:
-            pallete = conf.data.pallete if 'pallete' in conf.data else None
-            self.label_converter = VISUALIZER[task](class_map=class_map, pallete=pallete)
+            pallete = conf.data.pallete if "pallete" in conf.data else None
+            self.label_converter = VISUALIZER[task](
+                class_map=class_map, pallete=pallete
+            )
 
     @property
     def result_dir(self):
@@ -118,36 +148,43 @@ class TrainingLogger():
         return scalar_dict
 
     def _convert_images_as_readable(self, samples: Union[Dict, List]):
-        if len(samples['name']) == 0:
+        if len(samples["name"]) == 0:
             return None
 
         sample_name_to_index = self.dataloader.dataset.sample_name_to_index
-        images = [self.dataloader.dataset[sample_name_to_index[name]]['pixel_values'].numpy() for name in samples['name'][:self.num_sample_images]]
+        images = [
+            self.dataloader.dataset[sample_name_to_index[name]]["pixel_values"].numpy()
+            for name in samples["name"][: self.num_sample_images]
+        ]
         images = [magic_image_handler(image) for image in images]
 
         sample_readable = {}
-        sample_readable['images'] = images
+        sample_readable["images"] = images
         # TODO: pred and target can be more complex data structure later.
-        sample_readable['pred'] = samples['pred'][:self.num_sample_images]
-        sample_readable['pred'] = self.label_converter(sample_readable['images'], sample_readable['pred'])
-        if bool(samples['target']):
-            sample_readable['target'] = samples['target'][:self.num_sample_images]
-            sample_readable['target'] = self.label_converter(sample_readable['images'], sample_readable['target'])
+        sample_readable["pred"] = samples["pred"][: self.num_sample_images]
+        sample_readable["pred"] = self.label_converter(
+            sample_readable["images"], sample_readable["pred"]
+        )
+        if bool(samples["target"]):
+            sample_readable["target"] = samples["target"][: self.num_sample_images]
+            sample_readable["target"] = self.label_converter(
+                sample_readable["images"], sample_readable["target"]
+            )
 
         return sample_readable
 
     def log(
         self,
-        prefix: Literal['training', 'validation', 'evaluation', 'inference'],
+        prefix: Literal["training", "validation", "evaluation", "inference"],
         epoch: Optional[int] = None,
         samples: Optional[List] = None,
-        losses : Optional[Dict] = None,
+        losses: Optional[Dict] = None,
         metrics: Optional[Dict] = None,
         data_stats: Optional[Dict] = None,
         learning_rate: Optional[float] = None,
         elapsed_time: Optional[float] = None,
     ):
-        if not self.use_imagesaver: # TODO: This is uneffective way
+        if not self.use_imagesaver:  # TODO: This is uneffective way
             samples = None
 
         if losses is not None:
@@ -166,7 +203,7 @@ class TrainingLogger():
                 data_stats=data_stats,
                 images=samples,
                 learning_rate=learning_rate,
-                elapsed_time=elapsed_time
+                elapsed_time=elapsed_time,
             )
 
     def log_end_of_traning(self, final_metrics=None):

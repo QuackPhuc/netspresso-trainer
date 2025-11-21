@@ -25,38 +25,55 @@ from loguru import logger
 from omegaconf import DictConfig
 
 from .augmentation.registry import TRANSFORM_DICT
-from .registry import CREATE_TRANSFORM, CUSTOM_DATASET, DATA_SAMPLER, HUGGINGFACE_DATASET
+from .registry import (
+    CREATE_TRANSFORM,
+    CUSTOM_DATASET,
+    DATA_SAMPLER,
+    HUGGINGFACE_DATASET,
+)
 from .utils.collate_fn import default_collate_fn
 from .utils.loader import create_loader
 
 TRAIN_VALID_SPLIT_RATIO = 0.9
 
 
-def dataset_path_check(conf_data: DictConfig, mode: Literal['train', 'test']):
-    if mode == 'train':
-        train_check = (conf_data.path.train.image is not None) and (conf_data.path.train.label is not None)
+def dataset_path_check(conf_data: DictConfig, mode: Literal["train", "test"]):
+    if mode == "train":
+        train_check = (conf_data.path.train.image is not None) and (
+            conf_data.path.train.label is not None
+        )
         assert train_check, "For training, train split of dataset must be provided."
 
         if conf_data.path.test.image:
-            logger.warning('For training, test split of dataset is not needed. This field will be ignored.')
+            logger.warning(
+                "For training, test split of dataset is not needed. This field will be ignored."
+            )
         conf_data.path.test.image = None
         conf_data.path.test.label = None
 
-    elif mode == 'test':
-        assert conf_data.path.test.image is not None, "For test, test split of dataset must be provided."
+    elif mode == "test":
+        assert (
+            conf_data.path.test.image is not None
+        ), "For test, test split of dataset must be provided."
 
         if conf_data.path.train.image:
-            logger.warning('For test (evaluation or inference), train split of dataset is not needed. This field will be ignored.')
+            logger.warning(
+                "For test (evaluation or inference), train split of dataset is not needed. This field will be ignored."
+            )
         conf_data.path.train.image = None
         conf_data.path.train.label = None
 
         if conf_data.path.valid.image:
-            logger.warning('For test (evaluation or inference), valid split of dataset is not needed. This field will be ignored.')
+            logger.warning(
+                "For test (evaluation or inference), valid split of dataset is not needed. This field will be ignored."
+            )
         conf_data.path.valid.image = None
         conf_data.path.valid.label = None
 
     else:
-        raise ValueError(f"mode of build_dataset cannot be {mode}. Must be one of ['train', 'test'].")
+        raise ValueError(
+            f"mode of build_dataset cannot be {mode}. Must be one of ['train', 'test']."
+        )
 
 
 def loaded_dataset_check(
@@ -65,24 +82,36 @@ def loaded_dataset_check(
     valid_dataset: data.Dataset,
     test_dataset: data.Dataset,
     distributed: bool,
-    mode: Literal['train', 'test']
+    mode: Literal["train", "test"],
 ):
-    if mode == 'train':
+    if mode == "train":
         if not distributed or dist.get_rank() == 0:
-            logger.info(f"Summary | Dataset: <{conf_data.name}> (with {conf_data.format} format)")
+            logger.info(
+                f"Summary | Dataset: <{conf_data.name}> (with {conf_data.format} format)"
+            )
             logger.info(f"Summary | Training dataset: {len(train_dataset)} sample(s)")
             if valid_dataset is not None:
-                logger.info(f"Summary | Validation dataset: {len(valid_dataset)} sample(s)")
-        assert len(train_dataset) > 0, "Training dataset has no samples. Please check your dataset configuration."
+                logger.info(
+                    f"Summary | Validation dataset: {len(valid_dataset)} sample(s)"
+                )
+        assert (
+            len(train_dataset) > 0
+        ), "Training dataset has no samples. Please check your dataset configuration."
 
-    elif mode == 'test':
+    elif mode == "test":
         if not distributed or dist.get_rank() == 0:
-            logger.info(f"Summary | Dataset: <{conf_data.name}> (with {conf_data.format} format)")
+            logger.info(
+                f"Summary | Dataset: <{conf_data.name}> (with {conf_data.format} format)"
+            )
             logger.info(f"Summary | Test dataset: {len(test_dataset)} sample(s)")
-        assert len(test_dataset) > 0, "Test dataset has no samples. Please check your dataset configuration."
+        assert (
+            len(test_dataset) > 0
+        ), "Test dataset has no samples. Please check your dataset configuration."
 
     else:
-        raise ValueError(f"mode of build_dataset cannot be {mode}. Must be one of ['train', 'test'].")
+        raise ValueError(
+            f"mode of build_dataset cannot be {mode}. Must be one of ['train', 'test']."
+        )
 
 
 def build_dataset(
@@ -91,10 +120,10 @@ def build_dataset(
     task: str,
     model_name: str,
     distributed: bool,
-    mode: Literal['train', 'test'],
+    mode: Literal["train", "test"],
 ):
     if not distributed or dist.get_rank() == 0:
-        logger.info('-'*40)
+        logger.info("-" * 40)
         logger.info("Loading data...")
 
     task = conf_data.task
@@ -106,78 +135,131 @@ def build_dataset(
 
     data_format = conf_data.format
 
-    assert data_format in ['local', 'huggingface'], f"No such data format named {data_format} in {['local', 'huggingface']}!"
+    assert data_format in [
+        "local",
+        "huggingface",
+    ], f"No such data format named {data_format} in {['local', 'huggingface']}!"
 
-    if data_format == 'local':
+    if data_format == "local":
         dataset_path_check(conf_data=conf_data, mode=mode)
 
         assert task in CUSTOM_DATASET, f"Local dataset for {task} is not yet supported!"
-        data_sampler = DATA_SAMPLER[task](conf_data, train_valid_split_ratio=TRAIN_VALID_SPLIT_RATIO)
+        data_sampler = DATA_SAMPLER[task](
+            conf_data, train_valid_split_ratio=TRAIN_VALID_SPLIT_RATIO
+        )
 
         train_samples, valid_samples, test_samples, misc = data_sampler.load_samples()
-        idx_to_class = misc['idx_to_class'] if 'idx_to_class' in misc else None
-        label_value_to_idx = misc['label_value_to_idx'] if 'label_value_to_idx' in misc else None
+        idx_to_class = misc["idx_to_class"] if "idx_to_class" in misc else None
+        label_value_to_idx = (
+            misc["label_value_to_idx"] if "label_value_to_idx" in misc else None
+        )
 
         train_dataset = None
         if train_samples is not None:
             train_dataset = CUSTOM_DATASET[task](
-                conf_data, conf_augmentation, model_name, idx_to_class=idx_to_class, split='train',
-                samples=train_samples, transform=train_transform, label_value_to_idx=label_value_to_idx
+                conf_data,
+                conf_augmentation,
+                model_name,
+                idx_to_class=idx_to_class,
+                split="train",
+                samples=train_samples,
+                transform=train_transform,
+                label_value_to_idx=label_value_to_idx,
             )
 
         valid_dataset = None
         if valid_samples is not None:
             valid_dataset = CUSTOM_DATASET[task](
-                conf_data, conf_augmentation, model_name, idx_to_class=idx_to_class, split='valid',
-                samples=valid_samples, transform=target_transform, label_value_to_idx=label_value_to_idx
+                conf_data,
+                conf_augmentation,
+                model_name,
+                idx_to_class=idx_to_class,
+                split="valid",
+                samples=valid_samples,
+                transform=target_transform,
+                label_value_to_idx=label_value_to_idx,
             )
 
         test_dataset = None
         if test_samples is not None:
             test_dataset = CUSTOM_DATASET[task](
-                conf_data, conf_augmentation, model_name, idx_to_class=idx_to_class, split='test',
-                samples=test_samples, transform=target_transform, label_value_to_idx=label_value_to_idx
+                conf_data,
+                conf_augmentation,
+                model_name,
+                idx_to_class=idx_to_class,
+                split="test",
+                samples=test_samples,
+                transform=target_transform,
+                label_value_to_idx=label_value_to_idx,
             )
 
-    elif data_format == 'huggingface':
-        assert task in CUSTOM_DATASET, f"HuggingFace dataset for {task} is not yet supported!"
+    elif data_format == "huggingface":
+        assert (
+            task in CUSTOM_DATASET
+        ), f"HuggingFace dataset for {task} is not yet supported!"
         assert task in DATA_SAMPLER, f"Data sampler for {task} is not yet supported!"
 
-        data_sampler = DATA_SAMPLER[task](conf_data, train_valid_split_ratio=TRAIN_VALID_SPLIT_RATIO)
+        data_sampler = DATA_SAMPLER[task](
+            conf_data, train_valid_split_ratio=TRAIN_VALID_SPLIT_RATIO
+        )
 
-        train_samples, valid_samples, test_samples, misc = data_sampler.load_huggingface_samples()
-        idx_to_class = misc['idx_to_class'] if 'idx_to_class' in misc else None
-        label_value_to_idx = misc['label_value_to_idx'] if 'label_value_to_idx' in misc else None
+        train_samples, valid_samples, test_samples, misc = (
+            data_sampler.load_huggingface_samples()
+        )
+        idx_to_class = misc["idx_to_class"] if "idx_to_class" in misc else None
+        label_value_to_idx = (
+            misc["label_value_to_idx"] if "label_value_to_idx" in misc else None
+        )
 
         # Assumed hugging face dataset always has training split
         train_dataset = HUGGINGFACE_DATASET[task](
-            conf_data, conf_augmentation, model_name, idx_to_class=idx_to_class, split='train',
-            huggingface_dataset=train_samples, transform=train_transform, label_value_to_idx=label_value_to_idx
+            conf_data,
+            conf_augmentation,
+            model_name,
+            idx_to_class=idx_to_class,
+            split="train",
+            huggingface_dataset=train_samples,
+            transform=train_transform,
+            label_value_to_idx=label_value_to_idx,
         )
 
         valid_dataset = None
         if valid_samples is not None:
             valid_dataset = HUGGINGFACE_DATASET[task](
-                conf_data, conf_augmentation, model_name, idx_to_class=idx_to_class, split='valid',
-                huggingface_dataset=valid_samples, transform=target_transform, label_value_to_idx=label_value_to_idx
+                conf_data,
+                conf_augmentation,
+                model_name,
+                idx_to_class=idx_to_class,
+                split="valid",
+                huggingface_dataset=valid_samples,
+                transform=target_transform,
+                label_value_to_idx=label_value_to_idx,
             )
 
         test_dataset = None
         if test_samples is not None:
             test_dataset = HUGGINGFACE_DATASET[task](
-                conf_data, conf_augmentation, model_name, idx_to_class=idx_to_class, split='test',
-                huggingface_dataset=test_samples, transform=target_transform, label_value_to_idx=label_value_to_idx
+                conf_data,
+                conf_augmentation,
+                model_name,
+                idx_to_class=idx_to_class,
+                split="test",
+                huggingface_dataset=test_samples,
+                transform=target_transform,
+                label_value_to_idx=label_value_to_idx,
             )
 
-    loaded_dataset_check(conf_data, train_dataset, valid_dataset, test_dataset, distributed, mode)
+    loaded_dataset_check(
+        conf_data, train_dataset, valid_dataset, test_dataset, distributed, mode
+    )
     return train_dataset, valid_dataset, test_dataset
 
 
 def build_dataloader(conf, task: str, model_name: str, dataset, phase, profile=False):
-    is_training = phase == 'train'
+    is_training = phase == "train"
 
     cache_data = conf.environment.cache_data
-    if task == 'classification':
+    if task == "classification":
         collate_fn = default_collate_fn
         # # TODO: Remove this when mixing is refactored
         # transforms = getattr(conf.augmentation, phase, None)
@@ -209,15 +291,19 @@ def build_dataloader(conf, task: str, model_name: str, dataset, phase, profile=F
             world_size=conf.world_size,
             rank=conf.rank,
             cache_data=cache_data,
-            kwargs=None
+            kwargs=None,
         )
-    elif task == 'segmentation':
+    elif task == "segmentation":
         collate_fn = default_collate_fn
 
-        if phase == 'train':
+        if phase == "train":
             batch_size = conf.environment.batch_size
         else:
-            batch_size = conf.environment.batch_size if model_name == 'pidnet' and not conf.distributed else 1
+            batch_size = (
+                conf.environment.batch_size
+                if model_name == "pidnet" and not conf.distributed
+                else 1
+            )
 
         dataloader = create_loader(
             dataset,
@@ -232,12 +318,12 @@ def build_dataloader(conf, task: str, model_name: str, dataset, phase, profile=F
             world_size=conf.world_size,
             rank=conf.rank,
             cache_data=cache_data,
-            kwargs=None
+            kwargs=None,
         )
-    elif task == 'detection':
+    elif task == "detection":
         collate_fn = default_collate_fn
 
-        if phase == 'train':
+        if phase == "train":
             batch_size = conf.environment.batch_size
         else:
             batch_size = conf.environment.batch_size if not conf.distributed else 2
@@ -255,10 +341,10 @@ def build_dataloader(conf, task: str, model_name: str, dataset, phase, profile=F
             world_size=conf.world_size,
             rank=conf.rank,
             cache_data=cache_data,
-            kwargs=None
+            kwargs=None,
         )
-    elif task == 'pose_estimation':
-        collate_fn = None
+    elif task == "pose_estimation":
+        collate_fn = default_collate_fn
 
         dataloader = create_loader(
             dataset,
@@ -273,7 +359,7 @@ def build_dataloader(conf, task: str, model_name: str, dataset, phase, profile=F
             world_size=conf.world_size,
             rank=conf.rank,
             cache_data=cache_data,
-            kwargs=None
+            kwargs=None,
         )
     else:
         raise AssertionError(f"Task ({task}) is not understood!")

@@ -22,20 +22,49 @@ import PIL.Image as Image
 
 
 class ImageSaver:
-    def __init__(self, model, result_dir, save_best_only: Optional[bool]=None) -> None:
+    def __init__(
+        self, model, result_dir, save_best_only: Optional[bool] = None
+    ) -> None:
         super(ImageSaver, self).__init__()
         self.model = model
         self.save_dir: Path = Path(result_dir) / "result_image"
         self.save_dir.mkdir(exist_ok=True)
         self.save_best_only = save_best_only
 
-    def save_ndarray_as_image(self, image_array: np.ndarray, filename: Union[str, Path], dataformats: Literal['HWC', 'CHW'] = 'HWC'):
-        assert image_array.ndim == 3
-        if dataformats != 'HWC' and dataformats == 'CHW':
+    def save_ndarray_as_image(
+        self,
+        image_array: np.ndarray,
+        filename: Union[str, Path],
+        dataformats: Literal["HWC", "CHW"] = "HWC",
+    ):
+        # Handle 4D array (batch of images) - take the first one or squeeze if batch size is 1
+        if image_array.ndim == 4:
+            if image_array.shape[0] == 1:
+                image_array = image_array.squeeze(0)
+            else:
+                # If batch > 1, we might need to loop, but here we just take the first one to avoid crash
+                image_array = image_array[0]
+
+        # Handle 2D array (grayscale)
+        if image_array.ndim == 2:
+            image_array = image_array[..., np.newaxis]
+
+        assert (
+            image_array.ndim == 3
+        ), f"Image array must be 3D (HWC or CHW), but got shape {image_array.shape}"
+        if dataformats != "HWC" and dataformats == "CHW":
             image_array = image_array.transpose((1, 2, 0))
 
         # HWC
-        assert image_array.shape[-1] in [1, 3]
+        assert image_array.shape[-1] in [
+            1,
+            3,
+        ], f"Image array must have 1 or 3 channels in last dim, got {image_array.shape}"
+
+        # For PIL, if channel is 1, squeeze it to 2D
+        if image_array.shape[-1] == 1:
+            image_array = image_array.squeeze(-1)
+
         Image.fromarray(image_array.astype(np.uint8)).save(filename)
         return True
 
@@ -47,18 +76,26 @@ class ImageSaver:
             for idx, v in enumerate(v_list):
                 assert isinstance(v, np.ndarray)
                 if epoch is None:
-                    self.save_ndarray_as_image(v, f"{prefix_dir}/{idx:03d}_{k}.png", dataformats='HWC')
+                    self.save_ndarray_as_image(
+                        v, f"{prefix_dir}/{idx:03d}_{k}.png", dataformats="HWC"
+                    )
                 elif self.save_best_only:
-                    self.save_ndarray_as_image(v, f"{prefix_dir}/best_{idx:03d}_{k}.png", dataformats='HWC')
+                    self.save_ndarray_as_image(
+                        v, f"{prefix_dir}/best_{idx:03d}_{k}.png", dataformats="HWC"
+                    )
                 else:
-                    self.save_ndarray_as_image(v, f"{prefix_dir}/{epoch:04d}_{idx:03d}_{k}.png", dataformats='HWC')
+                    self.save_ndarray_as_image(
+                        v,
+                        f"{prefix_dir}/{epoch:04d}_{idx:03d}_{k}.png",
+                        dataformats="HWC",
+                    )
 
     def __call__(
         self,
-        prefix: Literal['training', 'validation', 'evaluation', 'inference'],
+        prefix: Literal["training", "validation", "evaluation", "inference"],
         epoch: Optional[int] = None,
         images: Optional[List] = None,
-        **kwargs
+        **kwargs,
     ):
         if images is not None:
             self.save_result(images, prefix=prefix, epoch=epoch)

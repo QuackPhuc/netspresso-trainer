@@ -48,14 +48,32 @@ class BasePipeline(ABC):
 
     @property
     def sample_input(self):
-        return torch.randn((1, 3, self.conf.logging.model_save_options.sample_input_size[0], self.conf.logging.model_save_options.sample_input_size[1]))
+        input_size = self.conf.logging.model_save_options.sample_input_size
+        if self.task == "pose_estimation":
+            # Try to get target_size from config
+            if (
+                hasattr(self.conf.model, "head")
+                and hasattr(self.conf.model.head, "params")
+                and hasattr(self.conf.model.head.params, "target_size")
+            ):
+                input_size = self.conf.model.head.params.target_size
+
+            # Try to get target_size from model directly
+            model = self.model
+            if hasattr(model, "module"):
+                model = model.module
+
+            if hasattr(model, "head") and hasattr(model.head, "target_size"):
+                input_size = model.head.target_size
+
+        return torch.randn((1, 3, input_size[0], input_size[1]))
 
     def log_results(
         self,
-        prefix: Literal['training', 'validation', 'evaluation', 'inference'],
+        prefix: Literal["training", "validation", "evaluation", "inference"],
         epoch: Optional[int] = None,
         samples: Optional[List] = None,
-        losses : Optional[Dict] = None,
+        losses: Optional[Dict] = None,
         metrics: Optional[Dict] = None,
         data_stats: Optional[Dict] = None,
         learning_rate: Optional[float] = None,
@@ -69,7 +87,7 @@ class BasePipeline(ABC):
             metrics=metrics,
             data_stats=data_stats,
             learning_rate=learning_rate,
-            elapsed_time=elapsed_time
+            elapsed_time=elapsed_time,
         )
 
     @abstractmethod

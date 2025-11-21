@@ -27,22 +27,24 @@ from .base import BaseTaskProcessor
 
 class PoseEstimationProcessor(BaseTaskProcessor):
     def __init__(self, conf, postprocessor, devices, **kwargs):
-        super(PoseEstimationProcessor, self).__init__(conf, postprocessor, devices, **kwargs)
+        super(PoseEstimationProcessor, self).__init__(
+            conf, postprocessor, devices, **kwargs
+        )
 
     def train_step(self, train_model, batch, optimizer, loss_factory, metric_factory):
         train_model.train()
-        images, keypoints = batch['pixel_values'], batch['keypoints']
+        images, keypoints = batch["pixel_values"], batch["keypoints"]
         images = torch.stack(images, dim=0)
-        keypoints = torch.stack(keypoints, dim=0)
+        keypoints = torch.stack([torch.as_tensor(k) for k in keypoints], dim=0)
         images = images.to(self.devices)
-        target = {'keypoints': keypoints.to(self.devices)}
+        target = {"keypoints": keypoints.to(self.devices)}
 
         optimizer.zero_grad()
 
         with torch.cuda.amp.autocast(enabled=self.mixed_precision):
             train_model = set_training_targets(train_model, target)
             out = train_model(images)
-            loss_factory.calc(out, target, phase='train')
+            loss_factory.calc(out, target, phase="train")
 
         loss_factory.backward(self.grad_scaler)
         if self.max_norm:
@@ -60,8 +62,16 @@ class PoseEstimationProcessor(BaseTaskProcessor):
             gathered_pred = [None for _ in range(torch.distributed.get_world_size())]
             gathered_labels = [None for _ in range(torch.distributed.get_world_size())]
 
-            torch.distributed.gather_object(pred, gathered_pred if torch.distributed.get_rank() == 0 else None, dst=0)
-            torch.distributed.gather_object(keypoints, gathered_labels if torch.distributed.get_rank() == 0 else None, dst=0)
+            torch.distributed.gather_object(
+                pred,
+                gathered_pred if torch.distributed.get_rank() == 0 else None,
+                dst=0,
+            )
+            torch.distributed.gather_object(
+                keypoints,
+                gathered_labels if torch.distributed.get_rank() == 0 else None,
+                dst=0,
+            )
             torch.distributed.barrier()
             if torch.distributed.get_rank() == 0:
                 pred = np.concatenate(gathered_pred, axis=0)
@@ -69,23 +79,27 @@ class PoseEstimationProcessor(BaseTaskProcessor):
 
         step_out = ProcessorStepOut.empty()
         if self.single_gpu_or_rank_zero:
-            step_out['pred'] = list(pred)
-            step_out['target'] = list(keypoints)
+            step_out["pred"] = list(pred)
+            step_out["target"] = list(keypoints)
 
         return step_out
 
     def valid_step(self, eval_model, batch, loss_factory, metric_factory):
         eval_model.eval()
-        name = batch['name']
-        indices, images, keypoints = batch['indices'], batch['pixel_values'], batch['keypoints']
-        indices = torch.stack(indices, dim=0)
+        name = batch["name"]
+        indices, images, keypoints = (
+            batch["indices"],
+            batch["pixel_values"],
+            batch["keypoints"],
+        )
+        indices = torch.as_tensor(indices)
         images = torch.stack(images, dim=0)
-        keypoints = torch.stack(keypoints, dim=0)
+        keypoints = torch.stack([torch.as_tensor(k) for k in keypoints], dim=0)
         images = images.to(self.devices)
-        target = {'keypoints': keypoints.to(self.devices)}
+        target = {"keypoints": keypoints.to(self.devices)}
 
         out = eval_model(images)
-        loss_factory.calc(out, target, phase='valid')
+        loss_factory.calc(out, target, phase="valid")
 
         pred = self.postprocessor(out)
 
@@ -100,9 +114,21 @@ class PoseEstimationProcessor(BaseTaskProcessor):
             gathered_pred = [None for _ in range(torch.distributed.get_world_size())]
             gathered_labels = [None for _ in range(torch.distributed.get_world_size())]
 
-            torch.distributed.gather_object(name, gathered_name if torch.distributed.get_rank() == 0 else None, dst=0)
-            torch.distributed.gather_object(pred, gathered_pred if torch.distributed.get_rank() == 0 else None, dst=0)
-            torch.distributed.gather_object(keypoints, gathered_labels if torch.distributed.get_rank() == 0 else None, dst=0)
+            torch.distributed.gather_object(
+                name,
+                gathered_name if torch.distributed.get_rank() == 0 else None,
+                dst=0,
+            )
+            torch.distributed.gather_object(
+                pred,
+                gathered_pred if torch.distributed.get_rank() == 0 else None,
+                dst=0,
+            )
+            torch.distributed.gather_object(
+                keypoints,
+                gathered_labels if torch.distributed.get_rank() == 0 else None,
+                dst=0,
+            )
             torch.distributed.barrier()
             if torch.distributed.get_rank() == 0:
                 name = sum(gathered_name, [])
@@ -111,17 +137,17 @@ class PoseEstimationProcessor(BaseTaskProcessor):
 
         step_out = ProcessorStepOut.empty()
         if self.single_gpu_or_rank_zero:
-            step_out['name'] = name
-            step_out['pred'] = list(pred)
-            step_out['target'] = list(keypoints)
+            step_out["name"] = name
+            step_out["pred"] = list(pred)
+            step_out["target"] = list(keypoints)
 
         return step_out
 
     def test_step(self, test_model, batch):
         test_model.eval()
-        name = batch['name']
-        indices, images = batch['indices'], batch['pixel_values']
-        indices = torch.stack(indices, dim=0)
+        name = batch["name"]
+        indices, images = batch["indices"], batch["pixel_values"]
+        indices = torch.as_tensor(indices)
         images = torch.stack(images, dim=0)
         images = images.to(self.devices)
 
@@ -137,8 +163,16 @@ class PoseEstimationProcessor(BaseTaskProcessor):
             gathered_name = [None for _ in range(torch.distributed.get_world_size())]
             gathered_pred = [None for _ in range(torch.distributed.get_world_size())]
 
-            torch.distributed.gather_object(name, gathered_name if torch.distributed.get_rank() == 0 else None, dst=0)
-            torch.distributed.gather_object(pred, gathered_pred if torch.distributed.get_rank() == 0 else None, dst=0)
+            torch.distributed.gather_object(
+                name,
+                gathered_name if torch.distributed.get_rank() == 0 else None,
+                dst=0,
+            )
+            torch.distributed.gather_object(
+                pred,
+                gathered_pred if torch.distributed.get_rank() == 0 else None,
+                dst=0,
+            )
             torch.distributed.barrier()
             if torch.distributed.get_rank() == 0:
                 gathered_pred = sum(gathered_pred, [])
@@ -147,15 +181,17 @@ class PoseEstimationProcessor(BaseTaskProcessor):
 
         step_out = ProcessorStepOut.empty()
         if self.single_gpu_or_rank_zero:
-            step_out['name'] = name
-            step_out['pred'] = list(pred)
+            step_out["name"] = name
+            step_out["pred"] = list(pred)
 
         return step_out
 
-    def get_metric_with_all_outputs(self, outputs, phase: Literal['train', 'valid'], metric_factory):
+    def get_metric_with_all_outputs(
+        self, outputs, phase: Literal["train", "valid"], metric_factory
+    ):
         if self.single_gpu_or_rank_zero:
-            pred = np.concatenate([output['pred']for output in outputs], axis=0)
-            keypoints = np.concatenate([output['target']for output in outputs], axis=0)
+            pred = np.stack(outputs["pred"], axis=0)
+            keypoints = np.stack(outputs["target"], axis=0)
             metric_factory.update(pred, keypoints, phase=phase)
 
     def get_predictions(self, results, class_map):
