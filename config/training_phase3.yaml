@@ -1,0 +1,25 @@
+# Phase 3: Fine-tuning & Convergence
+# Very low LR for pixel-perfect accuracy
+# Minimal augmentation applied (see pose_estimation_phase3.yaml)
+
+training:
+  epochs: 50
+  mixed_precision: True
+  ema:                           # EMA critical for final smooth weights
+    use: True
+    decay: 0.9999                # Higher decay for more stable averaging
+  max_norm: 5.0                  # Lower clipping (weights should be stable)
+  optimizer:
+    name: adamw
+    lr: 1e-5                     # Very low learning rate
+    betas: [0.9, 0.999]
+    weight_decay: 0.001          # Minimal weight decay
+    no_bias_decay: True
+    no_norm_weight_decay: True
+    overwrite: ~
+  scheduler:
+    name: cosine_no_sgdr
+    warmup_epochs: 2             # Minimal warmup
+    warmup_bias_lr: 1e-7
+    min_lr: 1e-6                 # Very low minimum
+    end_epoch: 50

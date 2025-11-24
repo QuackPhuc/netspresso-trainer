@@ -1,0 +1,49 @@
+# Phase 3: Minimal Augmentation (Fine-tuning / Cool Down)
+# Goal: Pixel-perfect accuracy, align with inference distribution
+# Duration: 50 epochs, early_stop: 25
+# LR: 1e-5 (Very low LR for precise weight adjustment)
+
+augmentation:
+  train:
+    - 
+      name: posetopdownaffine
+      scale: [0.95, 1.05]      # Minimal scale variation
+      scale_prob: 1.
+      translate: 0.05          # Minimal translation
+      translate_prob: 1.
+      rotation: 10             # Very slight rotation only
+      rotation_prob: 0.5       # 50% no rotation at all
+      size: [256, 256]
+    -
+      name: colorjitter        # Very light color aug
+      brightness: 0.1
+      contrast: 0.1
+      saturation: 0.1
+      hue: 0.02
+      p: 0.3                   # Low probability
+    # No geometric distortions, no occlusions
+    -
+      name: totensor
+      pixel_range: 1.0
+    -
+      name: normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+      
+  inference:
+    - 
+      name: posetopdownaffine
+      scale: [1., 1.]
+      scale_prob: 0.
+      translate: 0.
+      translate_prob: 0.
+      rotation: 0
+      rotation_prob: 0.
+      size: [256, 256]
+    -
+      name: totensor
+      pixel_range: 1.0
+    -
+      name: normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]

@@ -1,0 +1,56 @@
+# Phase 1: Strong Augmentation (Foundation Building)
+# Goal: Learn robust features, prevent overfitting, high diversity
+# Duration: 50 epochs, early_stop: 25
+# LR: 3e-4 (High learning rate for exploration)
+
+augmentation:
+  train:
+    # NO horizontal flip for license plates (preserves directional features like EU blue strip)
+    - 
+      name: posetopdownaffine
+      scale: [0.6, 1.4]        # Wide scale range for robustness
+      scale_prob: 1.
+      translate: 0.2           # Higher translation tolerance
+      translate_prob: 1.
+      rotation: 45             # Moderate rotation (license plates don't flip 90°)
+      rotation_prob: 1.
+      size: [256, 256]
+    -
+      name: colorjitter        # Critical for outdoor/various lighting conditions
+      brightness: 0.5          # Strong brightness variation (day/night)
+      contrast: 0.5            # Handle dirty/clean plates
+      saturation: 0.4          # Color variation
+      hue: 0.1                 # Slight hue shift
+      p: 0.8                   # High probability
+    -
+      name: randomerasing      # Simulate dirt, stickers, partial occlusion
+      p: 0.5
+      scale: [0.02, 0.15]      # Small to medium patches
+      ratio: [0.3, 3.3]
+      value: 0                 # Random fill
+      inplace: False
+    -
+      name: totensor
+      pixel_range: 1.0
+    -
+      name: normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
+      
+  inference:
+    - 
+      name: posetopdownaffine
+      scale: [1., 1.]
+      scale_prob: 0.
+      translate: 0.
+      translate_prob: 0.
+      rotation: 0
+      rotation_prob: 0.
+      size: [256, 256]
+    -
+      name: totensor
+      pixel_range: 1.0
+    -
+      name: normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]

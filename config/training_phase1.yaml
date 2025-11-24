@@ -1,0 +1,23 @@
+# Phase 1: Foundation Building
+# High LR for fast learning and feature exploration
+# Strong augmentation applied (see pose_estimation_phase1.yaml)
+
+training:
+  epochs: 50
+  mixed_precision: True          # Enable for faster training with RTX GPUs
+  ema: ~                         # No EMA in phase 1 (focus on exploration)
+  max_norm: 10.0                 # Gradient clipping to prevent explosion
+  optimizer:
+    name: adamw
+    lr: 3e-4                     # High learning rate
+    betas: [0.9, 0.999]
+    weight_decay: 0.01           # Higher weight decay for regularization
+    no_bias_decay: True          # Don't decay bias (best practice)
+    no_norm_weight_decay: True   # Don't decay BN/LN weights
+    overwrite: ~
+  scheduler:
+    name: cosine_no_sgdr
+    warmup_epochs: 5             # Warm up to avoid initial instability
+    warmup_bias_lr: 1e-6         # Very low warmup start
+    min_lr: 1e-5                 # Minimum LR at end of cosine
+    end_epoch: 50                # Full cosine cycle

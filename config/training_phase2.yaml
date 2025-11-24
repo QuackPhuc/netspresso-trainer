@@ -1,0 +1,25 @@
+# Phase 2: Stabilization & Refinement
+# Medium LR for careful improvement
+# Medium augmentation applied (see pose_estimation_phase2.yaml)
+
+training:
+  epochs: 50
+  mixed_precision: True
+  ema:                           # Enable EMA for stability
+    use: True
+    decay: 0.9998
+  max_norm: 10.0
+  optimizer:
+    name: adamw
+    lr: 1e-4                     # Medium learning rate
+    betas: [0.9, 0.999]
+    weight_decay: 0.005          # Reduced weight decay
+    no_bias_decay: True
+    no_norm_weight_decay: True
+    overwrite: ~
+  scheduler:
+    name: cosine_no_sgdr
+    warmup_epochs: 3             # Shorter warmup (already pre-trained)
+    warmup_bias_lr: 1e-6
+    min_lr: 5e-6
+    end_epoch: 50
