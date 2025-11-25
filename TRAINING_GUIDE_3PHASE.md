@@ -62,30 +62,34 @@ python train.py \
 ### Configuration Files
 - Augmentation: `config/augmentation/pose_estimation_phase2.yaml`
 - Training: `config/training_phase2.yaml`
-- **Checkpoint**: Load best weights from Phase 1
+- **Model: Create `config/model/rtmpose/rtmpose-pose_estimation_phase2.yaml`**
+- Environment: `config/environment.yaml` (adjust batch_size if needed)
 
-### Key Parameters
-- **Learning Rate**: 1e-4 (Reduced 3x)
-- **Weight Decay**: 0.005 (Reduced)
-- **Augmentation Strength**: MEDIUM
-  - Rotation: ±30° (reduced)
-  - Scale: [0.75, 1.25] (narrowed)
-  - Translation: 0.15
-  - ColorJitter: p=0.6 (reduced intensity)
-  - RandomErasing: REMOVED (no more occlusion)
-- **EMA**: Enabled (decay=0.9998) for smoother weights
-- **Early Stopping**: 25 epochs
+### Model Config for Phase 2
+Copy the original model config and modify checkpoint path:
+
+```yaml
+# config/model/rtmpose/rtmpose-pose_estimation_phase2.yaml
+model:
+  task: pose_estimation
+  name: mobilenet_v3_small
+  checkpoint:
+    use_pretrained: True          # Set to True to load checkpoint
+    load_head: True               # Load head weights from Phase 1
+    path: outputs/phase1/best.pth  # Path to Phase 1 best checkpoint
+    optimizer_path: ~             # Don't load optimizer state
+  # ... rest same as rtmpose-pose_estimation.yaml
+```
 
 ### Training Command
 ```bash
 python train.py \
-  --model_config config/model/rtmpose/rtmpose-pose_estimation.yaml \
+  --model_config config/model/rtmpose/rtmpose-pose_estimation_phase2.yaml \
   --augmentation_config config/augmentation/pose_estimation_phase2.yaml \
   --training_config config/training_phase2.yaml \
   --environment_config config/environment.yaml \
   --data_config config/data/YOUR_LICENSE_PLATE_DATA.yaml \
-  --logging_config config/logging.yaml \
-  --checkpoint_path outputs/phase1/best.pth  # Load Phase 1 best weights
+  --logging_config config/logging.yaml
 ```
 
 ### Expected Behavior
@@ -105,30 +109,34 @@ python train.py \
 ### Configuration Files
 - Augmentation: `config/augmentation/pose_estimation_phase3.yaml`
 - Training: `config/training_phase3.yaml`
-- **Checkpoint**: Load best weights from Phase 2
+- **Model: Create `config/model/rtmpose/rtmpose-pose_estimation_phase3.yaml`**
+- Environment: `config/environment.yaml` (adjust batch_size if needed)
 
-### Key Parameters
-- **Learning Rate**: 1e-5 (Very low for micro-adjustments)
-- **Weight Decay**: 0.001 (Minimal)
-- **Augmentation Strength**: MINIMAL (almost like inference)
-  - Rotation: ±10° (50% prob = 0, i.e., 50% no rotation)
-  - Scale: [0.95, 1.05] (nearly fixed)
-  - Translation: 0.05 (tiny)
-  - ColorJitter: p=0.3 (light, low prob)
-  - No geometric distortions
-- **EMA**: Enabled (decay=0.9999) - use EMA weights for final evaluation
-- **Early Stopping**: 25 epochs
+### Model Config for Phase 3
+Copy the Phase 2 model config and update checkpoint path:
+
+```yaml
+# config/model/rtmpose/rtmpose-pose_estimation_phase3.yaml
+model:
+  task: pose_estimation
+  name: mobilenet_v3_small
+  checkpoint:
+    use_pretrained: True          # Set to True to load checkpoint
+    load_head: True               # Load head weights from Phase 2
+    path: outputs/phase2/best.pth  # Path to Phase 2 best checkpoint
+    optimizer_path: ~             # Don't load optimizer state
+  # ... rest same as rtmpose-pose_estimation.yaml
+```
 
 ### Training Command
 ```bash
 python train.py \
-  --model_config config/model/rtmpose/rtmpose-pose_estimation.yaml \
+  --model_config config/model/rtmpose/rtmpose-pose_estimation_phase3.yaml \
   --augmentation_config config/augmentation/pose_estimation_phase3.yaml \
   --training_config config/training_phase3.yaml \
   --environment_config config/environment.yaml \
   --data_config config/data/YOUR_LICENSE_PLATE_DATA.yaml \
-  --logging_config config/logging.yaml \
-  --checkpoint_path outputs/phase2/best.pth  # Load Phase 2 best weights
+  --logging_config config/logging.yaml
 ```
 
 ### Expected Behavior

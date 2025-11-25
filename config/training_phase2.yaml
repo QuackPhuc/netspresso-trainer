@@ -8,6 +8,7 @@ training:
   ema:                           # Enable EMA for stability
     use: True
     decay: 0.9998
+    name: constant_decay
   max_norm: 10.0
   optimizer:
     name: adamw

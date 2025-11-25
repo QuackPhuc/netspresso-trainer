@@ -8,6 +8,7 @@ training:
   ema:                           # EMA critical for final smooth weights
     use: True
     decay: 0.9999                # Higher decay for more stable averaging
+    name: constant_decay
   max_norm: 5.0                  # Lower clipping (weights should be stable)
   optimizer:
     name: adamw
