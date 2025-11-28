@@ -5,6 +5,9 @@
 
 augmentation:
   train:
+    -
+      name: randomhorizontalflip
+      prob: 0.5
     - 
       name: posetopdownaffine
       scale: [0.95, 1.05]      # Minimal scale variation

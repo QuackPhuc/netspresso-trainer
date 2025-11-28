@@ -5,6 +5,9 @@
 
 augmentation:
   train:
+    -
+      name: randomhorizontalflip
+      p: 0.5
     - 
       name: posetopdownaffine
       scale: [0.75, 1.25]      # Narrower scale range
@@ -16,12 +19,11 @@ augmentation:
       size: [256, 256]
     -
       name: colorjitter        # Keep color aug but reduce intensity
-      brightness: 0.3
-      contrast: 0.3
-      saturation: 0.25
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.15
       hue: 0.05
-      p: 0.6                   # Lower probability
-    # Remove RandomErasing - no more occlusion simulation
+      p: 0.3                   # Lower probability
     -
       name: totensor
       pixel_range: 1.0

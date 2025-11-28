@@ -2,5 +2,5 @@ environment:
   seed: 1
   num_workers: 2
   gpus: 0
-  batch_size: 64 # Batch size per gpu
+  batch_size: 32 # Batch size per gpu
   cache_data: False

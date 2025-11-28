@@ -195,4 +195,32 @@ class PoseEstimationProcessor(BaseTaskProcessor):
             metric_factory.update(pred, keypoints, phase=phase)
 
     def get_predictions(self, results, class_map):
-        pass
+        if results is None:
+            return []
+
+        assert "pred" in results and "name" in results
+
+        predictions = []
+        for idx in range(len(results["pred"])):
+            pred_keypoints = results["pred"][idx]  # shape (K, 2) from postprocessor
+            keypoints = []
+            for kp in pred_keypoints:
+                keypoints.append(
+                    {"x": float(kp[0]), "y": float(kp[1]), "v": 1.0}
+                )  # Assume visible
+
+            # Compute bbox from keypoints
+            xs = [kp["x"] for kp in keypoints]
+            ys = [kp["y"] for kp in keypoints]
+            bbox = {
+                "x_min": min(xs) if xs else 0,
+                "y_min": min(ys) if ys else 0,
+                "x_max": max(xs) if xs else 0,
+                "y_max": max(ys) if ys else 0,
+            }
+
+            predictions.append(
+                {"sample": results["name"][idx], "keypoints": keypoints, "bbox": bbox}
+            )
+
+        return predictions

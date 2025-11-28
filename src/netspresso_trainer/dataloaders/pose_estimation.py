@@ -67,6 +67,9 @@ class PoseEstimationSampleLoader(BaseSampleLoader):
 
             images = sorted(images, key=lambda k: natural_key(k))
             labels = sorted(labels, key=lambda k: natural_key(k))
+            
+            images = list(set(images))
+            labels = list(set(labels))
             images_and_targets.extend(
                 [
                     {"image": str(image), "label": str(label), "name": Path(image).stem}
@@ -208,6 +211,9 @@ class PoseEstimationCustomDataset(BaseCustomDataset):
         if ann is None:
             out = self.transform(image=img)
             outputs.update({"pixel_values": out["image"], "org_shape": (h, w)})
+            # Thêm org_img cho test
+            if self._split in ["test"]:
+                outputs.update({"org_img": np.array(img)})
             return outputs
 
         ann = ann.split(" ")
@@ -227,6 +233,8 @@ class PoseEstimationCustomDataset(BaseCustomDataset):
             return outputs
 
         assert self._split in ["val", "valid", "test"]
-        # outputs.update({'org_img': org_img, 'org_shape': (h, w)})  # TODO: return org_img with batch_size > 1
         outputs.update({"org_shape": (h, w)})
+        # Thêm org_img cho test và valid
+        if self._split in ["test", "val", "valid"]:
+            outputs.update({"org_img": np.array(img)})
         return outputs

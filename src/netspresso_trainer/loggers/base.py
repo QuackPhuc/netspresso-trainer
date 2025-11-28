@@ -152,10 +152,15 @@ class TrainingLogger:
             return None
 
         sample_name_to_index = self.dataloader.dataset.sample_name_to_index
-        images = [
-            self.dataloader.dataset[sample_name_to_index[name]]["pixel_values"].numpy()
-            for name in samples["name"][: self.num_sample_images]
-        ]
+        images = []
+        for name in samples["name"][: self.num_sample_images]:
+            sample = self.dataloader.dataset[sample_name_to_index[name]]
+            # Ưu tiên org_img nếu có, ngược lại dùng pixel_values
+            if "org_img" in sample:
+                img = sample["org_img"]
+            else:
+                img = sample["pixel_values"].numpy()
+            images.append(img)
         images = [magic_image_handler(image) for image in images]
 
         sample_readable = {}

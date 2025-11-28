@@ -5,23 +5,25 @@
 
 augmentation:
   train:
-    # NO horizontal flip for license plates (preserves directional features like EU blue strip)
+    -
+      name: randomhorizontalflip
+      p: 0.5
     - 
       name: posetopdownaffine
-      scale: [0.6, 1.4]        # Wide scale range for robustness
+      scale: [0.7, 1.3]        # Wide scale range for robustness
       scale_prob: 1.
       translate: 0.2           # Higher translation tolerance
       translate_prob: 1.
-      rotation: 45             # Moderate rotation (license plates don't flip 90°)
+      rotation: 60             # Moderate rotation (license plates don't flip 90°)
       rotation_prob: 1.
       size: [256, 256]
     -
       name: colorjitter        # Critical for outdoor/various lighting conditions
-      brightness: 0.5          # Strong brightness variation (day/night)
-      contrast: 0.5            # Handle dirty/clean plates
-      saturation: 0.4          # Color variation
+      brightness: 0.3          # Strong brightness variation (day/night)
+      contrast: 0.3            # Handle dirty/clean plates
+      saturation: 0.3          # Color variation
       hue: 0.1                 # Slight hue shift
-      p: 0.8                   # High probability
+      p: 0.5                   # High probability
     -
       name: randomerasing      # Simulate dirt, stickers, partial occlusion
       p: 0.5

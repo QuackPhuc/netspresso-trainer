@@ -38,3 +38,6 @@ docker-compose.yml
 # mlflow
 **/mlruns/
 **/mlartifacts/
+
+convert_test_labels.py
+temp_eval.py

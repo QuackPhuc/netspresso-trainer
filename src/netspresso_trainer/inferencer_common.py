@@ -33,11 +33,18 @@ def inference_common(
     task: str,
     model_name: str,
     logging_dir: Path,
-    log_level: Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] = 'INFO'
+    log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO",
 ):
     # TODO: Supports all tasks
-    inference_supports = ['classification', 'detection', 'segmentation']
-    assert task in inference_supports, f"Sorry. Inference mode only supports {inference_supports}"
+    inference_supports = [
+        "classification",
+        "detection",
+        "segmentation",
+        "pose_estimation",
+    ]
+    assert (
+        task in inference_supports
+    ), f"Sorry. Inference mode only supports {inference_supports}"
 
     distributed, world_size, rank, devices = set_device(conf.environment.seed)
     logger = set_logger(level=log_level, distributed=distributed)
@@ -60,29 +67,45 @@ def inference_common(
     conf.model.single_task_model = single_task_model
 
     # Build dataloader
-    _, _, test_dataset = build_dataset(conf.data, conf.augmentation, task, model_name, distributed=distributed, mode='test')
+    _, _, test_dataset = build_dataset(
+        conf.data,
+        conf.augmentation,
+        task,
+        model_name,
+        distributed=distributed,
+        mode="test",
+    )
 
     if conf.distributed and conf.rank == 0:
         torch.distributed.barrier()
 
-    test_dataloader = build_dataloader(conf, task, model_name, dataset=test_dataset, phase='val')
+    test_dataloader = build_dataloader(
+        conf, task, model_name, dataset=test_dataset, phase="val"
+    )
 
     # Build model
-    model = build_model(conf.model, test_dataset.num_classes, devices=devices, distributed=conf.distributed)
+    model = build_model(
+        conf.model,
+        test_dataset.num_classes,
+        devices=devices,
+        distributed=conf.distributed,
+    )
 
     # Build evaluation pipeline
-    pipeline_type = 'inference'
-    pipeline = build_pipeline(pipeline_type=pipeline_type,
-                              conf=conf,
-                              task=task,
-                              model_name=model_name,
-                              model=model,
-                              devices=devices,
-                              class_map=test_dataset.class_map,
-                              logging_dir=logging_dir,
-                              is_graphmodule_training=None, # TODO: Remove is_graphmodule_training ...
-                              dataloaders={'test': test_dataloader},
-                              data_stats={'test': test_dataset.stats})
+    pipeline_type = "inference"
+    pipeline = build_pipeline(
+        pipeline_type=pipeline_type,
+        conf=conf,
+        task=task,
+        model_name=model_name,
+        model=model,
+        devices=devices,
+        class_map=test_dataset.class_map,
+        logging_dir=logging_dir,
+        is_graphmodule_training=None,  # TODO: Remove is_graphmodule_training ...
+        dataloaders={"test": test_dataloader},
+        data_stats={"test": test_dataset.stats},
+    )
 
     try:
         # Start inference

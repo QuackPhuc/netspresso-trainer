@@ -209,28 +209,34 @@ class PoseEstimationVisualizer:
         return_images = []
         for image, result in zip(images, results):
             image = image.copy()
+            original_h, original_w = image.shape[:2]
+            # Resize image to fixed size 640x640
+            image = cv2.resize(image, (640, 640))
+            # Scale keypoints
+            scaled_result = []
             for keypoint in result:
-                # Ensure keypoint is a flat array or scalar
                 kp_x = keypoint[0]
                 kp_y = keypoint[1]
-
                 # Handle if it's a 0-d array or 1-element array
                 if isinstance(kp_x, np.ndarray):
                     if kp_x.size == 1:
                         kp_x = kp_x.item()
                     else:
                         kp_x = kp_x[0]  # Fallback: take first element if size > 1
-
                 if isinstance(kp_y, np.ndarray):
                     if kp_y.size == 1:
                         kp_y = kp_y.item()
                     else:
                         kp_y = kp_y[0]  # Fallback: take first element if size > 1
-
-                x = int(round(float(kp_x)))
-                y = int(round(float(kp_y)))
+                # Scale
+                scaled_x = float(kp_x) * 640 / original_w
+                scaled_y = float(kp_y) * 640 / original_h
+                scaled_result.append([scaled_x, scaled_y])
+            # Draw scaled keypoints
+            for kp in scaled_result:
+                x = int(round(kp[0]))
+                y = int(round(kp[1]))
                 image = cv2.line(image, (x, y), (x, y), color=(0, 0, 255), thickness=5)
-
             return_images.append(image[np.newaxis, ...])
         return_images = np.concatenate(return_images, axis=0)
         return return_images
