@@ -115,10 +115,12 @@ class KeypointEvaluator:
         device: str = "cuda",
         pck_threshold: float = 0.05,
         input_size: Tuple[int, int] = (256, 256),
+        bbox_padding: float = 1.25,
     ):
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
         self.pck_threshold = pck_threshold
         self.input_size = input_size
+        self.bbox_padding = bbox_padding
 
         print(f"Using device: {self.device}")
 
@@ -462,6 +464,18 @@ class KeypointEvaluator:
                     xs = keypoints[:, 0]
                     ys = keypoints[:, 1]
                     bbox = np.array([xs.min(), ys.min(), xs.max(), ys.max()])
+
+                    # Apply padding to the bbox calculated from keypoints
+                    if self.bbox_padding > 1.0:
+                        c_x = (bbox[0] + bbox[2]) / 2.0
+                        c_y = (bbox[1] + bbox[3]) / 2.0
+                        w = bbox[2] - bbox[0]
+                        h = bbox[3] - bbox[1]
+
+                        w *= self.bbox_padding
+                        h *= self.bbox_padding
+
+                        bbox = np.array([c_x - w / 2, c_y - h / 2, c_x + w / 2, c_y + h / 2])
 
                 # Final validation: bbox should have positive width/height
                 bbox_wh = bbox[2:] - bbox[:2]
@@ -844,6 +858,12 @@ def main():
         help="PCK threshold (normalized distance)",
     )
     parser.add_argument(
+        "--bbox_padding",
+        type=float,
+        default=1.25,
+        help="Padding factor for bbox when inferred from keypoints (default: 1.25)",
+    )
+    parser.add_argument(
         "--visualize_worst",
         type=int,
         default=100,
@@ -876,6 +896,7 @@ def main():
         augmentation_config=args.augmentation_config,
         device=args.device,
         pck_threshold=args.pck_threshold,
+        bbox_padding=args.bbox_padding,
     )
 
     # Load dataset and run evaluation
