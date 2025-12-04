@@ -217,13 +217,30 @@ class PoseEstimationCustomDataset(BaseCustomDataset):
             return outputs
 
         ann = ann.split(" ")
-        bbox = ann[-4:]
-        keypoints = ann[:-4]
+        if len(ann) < 16:
+            # If bbox is missing, derive it from keypoints
+            keypoints = np.array(ann).reshape(-1, 3).astype("float32")
 
-        bbox = np.array(bbox).astype("float32")[np.newaxis, ...]
-        keypoints = (
-            np.array(keypoints).reshape(-1, 3).astype("float32")[np.newaxis, ...]
-        )
+            xs = keypoints[:, 0]
+            ys = keypoints[:, 1]
+            bbox = np.array([xs.min(), ys.min(), xs.max(), ys.max()])
+
+            # Apply 1.25x padding (standard for pose estimation context)
+            c_x = (bbox[0] + bbox[2]) / 2.0
+            c_y = (bbox[1] + bbox[3]) / 2.0
+            w = bbox[2] - bbox[0]
+            h = bbox[3] - bbox[1]
+
+            w *= 1.25
+            h *= 1.25
+
+            bbox = np.array([c_x - w / 2, c_y - h / 2, c_x + w / 2, c_y + h / 2])
+        else:
+            bbox = np.array(ann[-4:]).astype("float32")
+            keypoints = np.array(ann[:-4]).reshape(-1, 3).astype("float32")
+
+        bbox = bbox[np.newaxis, ...]
+        keypoints = keypoints[np.newaxis, ...]
 
         out = self.transform(image=img, bbox=bbox, keypoint=keypoints, dataset=self)
 
